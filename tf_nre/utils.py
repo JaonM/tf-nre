@@ -19,3 +19,17 @@ def parse_text(text):
             e2_pos = i
             tokens[i] = re.sub('<e2>|</e2>', '', tokens[i])
     return e1_pos, e2_pos, ' '.join(tokens)
+
+
+def read_one_example(lines):
+    "Return label and raw text"
+    assert len(lines) == 3
+    return lines[1], lines[0]
+
+
+def parse_train_example():
+    """
+    Raw text converted to tf.train.Example
+    :return:
+    """
+    pass
