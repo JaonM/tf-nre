@@ -20,18 +20,22 @@ class Tokenizer(object):
                 if token not in self.word_index:
                     self.word_index[token] = len(self.word_index)
 
-    def text_to_sequence(self, texts, max_len, padding=True):
+    def text_to_sequences(self, texts, max_len, padding=True):
         seqs = []
         for text in texts:
-            seq = []
-            for token in text.split():
-                if token in self.word_index:
-                    seq.append(self.word_index[token])
-                else:
-                    seq.append(self.word_index['[UNK]'])
-            if len(seq) >= max_len:
-                seq = seq[:max_len]
-            elif padding:
-                seq = seq + [self.word_index['[PAD]']] * (max_len - len(seq))
+            seq = self.text_to_sequence(text, max_len, padding)
             seqs.append(seq)
         return seqs
+
+    def text_to_sequence(self, text, max_len, padding=True):
+        seq = []
+        for token in text.split():
+            if token in self.word_index:
+                seq.append(self.word_index[token])
+            else:
+                seq.append(self.word_index['[UNK]'])
+        if len(seq) >= max_len:
+            seq = seq[:max_len]
+        elif padding:
+            seq = seq + [self.word_index['[PAD]']] * (max_len - len(seq))
+        return seq

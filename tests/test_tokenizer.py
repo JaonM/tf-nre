@@ -28,5 +28,5 @@ def test_text_to_sequence():
             word_set.add(token)
     tokenizer.fit_on_texts(texts)
     target_texts = ["She is a student too"]
-    seqs = tokenizer.text_to_sequence(target_texts, 10)
+    seqs = tokenizer.text_to_sequences(target_texts, 10)
     print(seqs)
