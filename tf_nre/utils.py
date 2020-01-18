@@ -2,6 +2,8 @@ import re
 
 import tensorflow as tf
 
+from tf_nre.tokenizer import Tokenizer
+
 
 def parse_text(text):
     """
@@ -54,3 +56,51 @@ def parse_train_example(label_index, tokenizer, label, text, e1_pos, e2_pos, max
     }
     tf_example = tf.train.Example(features=tf.train.Features(feature=feature))
     return tf_example
+
+
+def parse_test_example(tokenizer, text, e1_pos, e2_pos, max_len, padding=True):
+    """
+    Raw text converted to tf.train.Example
+    :return:
+    """
+    seq = tokenizer.text_to_sequence(text, max_len, padding)
+    seq_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=seq))
+    e1_pos_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=[e1_pos]))
+    e2_pos_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=[e2_pos]))
+    feature = {
+        'text_seq': seq_feature,
+        'e1_pos': e1_pos_feature,
+        'e2_pos': e2_pos_feature
+    }
+    tf_example = tf.train.Example(features=tf.train.Features(feature=feature))
+    return tf_example
+
+
+def read_train(input_path, output_path, max_len, padding=True):
+    """
+    Read raw train file and write to tfrecord format
+    :param input_path:
+    :param output_path:
+    :return:
+    """
+    labels, entity_poses, clean_texts = [], [], []
+    with open(input_path) as f:
+        example_lines = []
+        for line in f:
+            if not line:
+                label, raw_text = read_one_example(example_lines)
+                labels.append(label)
+                e1_pos, e2_pos, clean_text = parse_text(raw_text)
+                entity_poses.append((e1_pos, e2_pos))
+                clean_texts.append(clean_text)
+                example_lines.clear()
+            example_lines.append(line.strip())
+    label_index = {}
+    for i in range(len(labels)):
+        label_index[labels[i]] = i
+    tokenizer = Tokenizer()
+    tokenizer.fit_on_texts(clean_texts)
+    with tf.io.TFRecordWriter(output_path) as writer:
+        for label, (e1_pos, e2_pos), text in zip(labels, entity_poses, clean_texts):
+            example = parse_train_example(label_index, tokenizer, label, text, e1_pos, e2_pos, max_len, padding)
+            writer.write(example.SerializeToString())
