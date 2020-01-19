@@ -87,15 +87,17 @@ def read_train(input_path, output_path, max_len, padding=True):
     with open(input_path) as f:
         example_lines = []
         for line in f:
-            if not line:
+            if line == '\n':
                 label, raw_text = read_one_example(example_lines)
                 labels.append(label)
                 e1_pos, e2_pos, clean_text = parse_text(raw_text)
                 entity_poses.append((e1_pos, e2_pos))
                 clean_texts.append(clean_text)
                 example_lines.clear()
-            example_lines.append(line.strip())
+            else:
+                example_lines.append(line.strip())
     label_index = {}
+    labels = list(set(labels))
     for i in range(len(labels)):
         label_index[labels[i]] = i
     tokenizer = Tokenizer()
@@ -104,3 +106,7 @@ def read_train(input_path, output_path, max_len, padding=True):
         for label, (e1_pos, e2_pos), text in zip(labels, entity_poses, clean_texts):
             example = parse_train_example(label_index, tokenizer, label, text, e1_pos, e2_pos, max_len, padding)
             writer.write(example.SerializeToString())
+
+
+if __name__ == '__main__':
+    read_train('data/training/TRAIN_FILE.TXT', 'train.tfrecord', 100)
