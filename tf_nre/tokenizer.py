@@ -1,4 +1,5 @@
 # 简化版 tokenizer
+import json
 
 
 class Tokenizer(object):
@@ -39,3 +40,15 @@ class Tokenizer(object):
         elif padding:
             seq = seq + [self.word_index['[PAD]']] * (max_len - len(seq))
         return seq
+
+    def to_json(self, filename):
+        with open(filename, 'w') as f:
+            f.write(json.dumps(self.word_index, ensure_ascii=False))
+
+    @staticmethod
+    def from_json(filename):
+        with open(filename) as f:
+            word_index = json.loads(f.readline())
+        tokenizer = Tokenizer()
+        tokenizer.word_index = word_index
+        return tokenizer
