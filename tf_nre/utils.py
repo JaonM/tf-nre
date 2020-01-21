@@ -5,7 +5,8 @@ import tensorflow as tf
 
 from tf_nre.tokenizer import Tokenizer
 
-WORD_PUNC_RE = r"(?P<ph>[,./\[\];?!()']*)(?P<w>(<e1>)?(<e2>)?\w+(</e1>)?(</e2>)?('s)?)(?P<pt>[,./\[\];?!()']*)"
+WORD_PUNC_RE = r"""(?P<ph>[,./\[\];?!()'"]*)(?P<w>(<e1>)?(<e2>)?\w+(</e1>)?(</e2>)?('s)?)(?P<pt>[,./\[\];?!()'"]*)"""
+PRICE_RE = r"""(?P<alias>(US)?)(?P<dollar>\$)(?P<number>\d+(\.\d+)?)(?P<punc>[,./\[\];?!()'"]?)"""
 
 
 def parse_text(text):
@@ -17,7 +18,16 @@ def parse_text(text):
     """
     e1_pos, e2_pos = [], []
     tokens = text2tokens(text)
-    rexp = re.compile(r'<e1>|<e2>|</e1>|</e2>')
+    e1_pat = re.compile(r'<e1>|</e1>')
+    e2_pat = re.compile(r'<e2>|</e2>')
+    for i in range(len(tokens)):
+        if e1_pat.search(tokens[i]):
+            e1_pos.append(i)
+            tokens[i] = e1_pat.sub('', tokens[i])
+        if e2_pat.search(tokens[i]):
+            e2_pos.append(i)
+            tokens[i] = e2_pat.sub('', tokens[i])
+
     return e1_pos, e2_pos, ' '.join(tokens)
 
 
@@ -26,11 +36,10 @@ def text2tokens(text):
     preprocess text into tokens
     """
     raw_tokens = text.split()
-    rexp = re.compile(WORD_PUNC_RE)
     ret = []
     for token in raw_tokens:
         # split punctuation and word
-        tmps = split_token_punctuation(rexp, token)
+        tmps = split_token_punctuation(token)
         for t in tmps:
             if "'s" in t:
                 assert t.strip()[-2:] == "'s"
@@ -40,18 +49,35 @@ def text2tokens(text):
     return ret
 
 
-def split_token_punctuation(pat, token):
-    m = pat.match(token)
-    if not m:
-        return [token]
-    tokens = []
-    if m.group('ph'):
-        tokens.extend(list(m.group('ph')))
-    if m.group('w'):
-        tokens.append(m.group('w'))
-    if m.group('pt'):
-        tokens.extend(list(m.group('pt')))
-    return tokens
+def split_token_punctuation(token):
+    """
+    Split punctuation and token
+    """
+    # detect price first
+    m = re.search(PRICE_RE, token)
+    if m:
+        tokens = []
+        if m.group('alias'):
+            tokens.append(m.group('alias'))
+        if m.group('dollar'):
+            tokens.append(m.group('dollar'))
+        if m.group('number'):
+            tokens.append('[NUM]')
+        if m.group('punc'):
+            tokens.append(m.group('punc'))
+        return tokens
+    else:
+        m = re.search(WORD_PUNC_RE, token)
+        if not m:
+            return [token]
+        tokens = []
+        if m.group('ph'):
+            tokens.extend(list(m.group('ph')))
+        if m.group('w'):
+            tokens.append(m.group('w'))
+        if m.group('pt'):
+            tokens.extend(list(m.group('pt')))
+        return tokens
 
 
 def read_one_example(lines):
@@ -75,8 +101,8 @@ def parse_train_example(label_index, tokenizer, label, text, e1_pos, e2_pos, max
     seq = tokenizer.text_to_sequence(text, max_len, padding)
     seq_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=seq))
     label_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=[label_index[label]]))
-    e1_pos_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=[e1_pos]))
-    e2_pos_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=[e2_pos]))
+    e1_pos_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=e1_pos))
+    e2_pos_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=e2_pos))
     feature = {
         'text_seq': seq_feature,
         'e1_pos': e1_pos_feature,
@@ -94,8 +120,8 @@ def parse_test_example(tokenizer, text, e1_pos, e2_pos, max_len, padding=True):
     """
     seq = tokenizer.text_to_sequence(text, max_len, padding)
     seq_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=seq))
-    e1_pos_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=[e1_pos]))
-    e2_pos_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=[e2_pos]))
+    e1_pos_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=e1_pos))
+    e2_pos_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=e2_pos))
     feature = {
         'text_seq': seq_feature,
         'e1_pos': e1_pos_feature,

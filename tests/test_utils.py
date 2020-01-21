@@ -4,10 +4,17 @@ from tf_nre.utils import *
 def test_parse_text():
     text = "The <e1>child</e1> was carefully wrapped and bound into the <e2>cradle</e2> by means of a cord."
     e1_pos, e2_pos, clean_text = parse_text(text)
-    assert e1_pos == 1
-    assert e2_pos == 9
+    assert e1_pos == [1]
+    assert e2_pos == [9]
     print(clean_text)
-    assert clean_text == "The child was carefully wrapped and bound into the cradle by means of a cord."
+    assert clean_text == "The child was carefully wrapped and bound into the cradle by means of a cord ."
+
+    text = "The <e1>child was</e1> carefully wrapped and bound into the <e2>cradle by</e2> means of a cord."
+    e1_pos, e2_pos, clean_text = parse_text(text)
+    assert e1_pos == [1, 2]
+    assert e2_pos == [9, 10]
+    print(clean_text)
+    assert clean_text == "The child was carefully wrapped and bound into the cradle by means of a cord ."
 
 
 def test_parse_raw_text():
@@ -21,21 +28,30 @@ def test_parse_raw_text():
 
 def test_split_token_punctuation():
     token = "('word')"
-    rexp = re.compile(WORD_PUNC_RE)
-    tokens = split_token_punctuation(rexp, token)
+    tokens = split_token_punctuation(token)
     assert tokens == ['(', "'", 'word', "'", ')']
 
     token = "<e1>word</e1>."
-    tokens = split_token_punctuation(rexp, token)
+    tokens = split_token_punctuation(token)
     assert tokens == ['<e1>word</e1>', '.']
 
     token = "<e1>word</e1>'s"
-    tokens = split_token_punctuation(rexp, token)
+    tokens = split_token_punctuation(token)
     assert tokens == ["<e1>word</e1>'s"]
 
     token = "word"
-    tokens = split_token_punctuation(rexp, token)
+    tokens = split_token_punctuation(token)
     assert tokens == ["word"]
+
+    token = "US$11.508"
+    tokens = split_token_punctuation(token)
+    print(tokens)
+    assert tokens == ["US", "$", "[NUM]"]
+
+    token = "$11.00."
+    tokens = split_token_punctuation(token)
+    print(tokens)
+    assert tokens == ["$", "[NUM]", "."]
 
 
 def test_text2tokens():
