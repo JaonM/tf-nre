@@ -5,18 +5,20 @@ import tensorflow as tf
 
 from tf_nre.tokenizer import Tokenizer
 
-WORD_PUNC_RE = r"""(?P<ph>[,./\[\];?!()'"]*)(?P<w>(<e1>)?(<e2>)?\w+(</e1>)?(</e2>)?('s)?)(?P<pt>[,./\[\];?!()'"]*)"""
+WORD_PUNC_RE = r"""(?P<ph>[,./\[\];?!()'"]*)(?P<w>(<e1>)?(<e2>)?[a-zA-Z]+(</e1>)?(</e2>)?('s)?)(?P<pt>[,./\[\];?!()'"]*)"""
 PRICE_RE = r"""(?P<alias>(US)?)(?P<dollar>\$)(?P<number>\d+(\.\d+)?)(?P<punc>[,./\[\];?!()'"]?)"""
+NUM_RE = r"""(?P<num>\d+(\.\d+)?)(?P<punc>[,./\[\];?!()'"]?)"""
 
 
 def parse_text(text):
     """
     process text,return subject&object positions and clean text
-    TODO under modifying
+
     :param text:
-    :return: e1 pos,e2pos,clean text
+    :return: e1 pos,e2 pos,clean text
     """
     e1_pos, e2_pos = [], []
+    text = text.lower()
     tokens = text2tokens(text)
     e1_pat = re.compile(r'<e1>|</e1>')
     e2_pat = re.compile(r'<e2>|</e2>')
@@ -27,7 +29,6 @@ def parse_text(text):
         if e2_pat.search(tokens[i]):
             e2_pos.append(i)
             tokens[i] = e2_pat.sub('', tokens[i])
-
     return e1_pos, e2_pos, ' '.join(tokens)
 
 
@@ -53,7 +54,7 @@ def split_token_punctuation(token):
     """
     Split punctuation and token
     """
-    # detect price first
+    # detect price
     m = re.search(PRICE_RE, token)
     if m:
         tokens = []
@@ -66,10 +67,10 @@ def split_token_punctuation(token):
         if m.group('punc'):
             tokens.append(m.group('punc'))
         return tokens
-    else:
-        m = re.search(WORD_PUNC_RE, token)
-        if not m:
-            return [token]
+
+    # detect word
+    m = re.search(WORD_PUNC_RE, token)
+    if m:
         tokens = []
         if m.group('ph'):
             tokens.extend(list(m.group('ph')))
@@ -78,6 +79,17 @@ def split_token_punctuation(token):
         if m.group('pt'):
             tokens.extend(list(m.group('pt')))
         return tokens
+
+    # detect number
+    m = re.search(NUM_RE, token)
+    if m:
+        tokens = []
+        if m.group('num'):
+            tokens.append('[NUM]')
+        if m.group('punc'):
+            tokens.append(m.group('punc'))
+        return tokens
+    return [token]
 
 
 def read_one_example(lines):

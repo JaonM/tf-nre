@@ -7,14 +7,14 @@ def test_parse_text():
     assert e1_pos == [1]
     assert e2_pos == [9]
     print(clean_text)
-    assert clean_text == "The child was carefully wrapped and bound into the cradle by means of a cord ."
+    assert clean_text == "the child was carefully wrapped and bound into the cradle by means of a cord ."
 
     text = "The <e1>child was</e1> carefully wrapped and bound into the <e2>cradle by</e2> means of a cord."
     e1_pos, e2_pos, clean_text = parse_text(text)
     assert e1_pos == [1, 2]
     assert e2_pos == [9, 10]
     print(clean_text)
-    assert clean_text == "The child was carefully wrapped and bound into the cradle by means of a cord ."
+    assert clean_text == "the child was carefully wrapped and bound into the cradle by means of a cord ."
 
 
 def test_parse_raw_text():
@@ -53,9 +53,21 @@ def test_split_token_punctuation():
     print(tokens)
     assert tokens == ["$", "[NUM]", "."]
 
+    token = "200"
+    tokens = split_token_punctuation(token)
+    assert tokens == ["[NUM]"]
+
+    token = "200."
+    tokens = split_token_punctuation(token)
+    assert tokens == ["[NUM]", '.']
+
+    token = "11.00."
+    tokens = split_token_punctuation(token)
+    assert tokens == ["[NUM]", "."]
+
 
 def test_text2tokens():
     text = "As many as 18 products in your home come from this <e1>guy</e1>'s <e2>company</e2>."
     tokens = text2tokens(text)
-    assert tokens == ["As", "many", "as", "18", "products", "in", "your", "home", "come", "from", "this",
+    assert tokens == ["As", "many", "as", "[NUM]", "products", "in", "your", "home", "come", "from", "this",
                       "<e1>guy</e1>", "'s", "<e2>company</e2>", "."]
