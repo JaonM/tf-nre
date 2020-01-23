@@ -5,7 +5,7 @@ import tensorflow as tf
 
 from tf_nre.tokenizer import Tokenizer
 
-WORD_PUNC_RE = r"""(?P<ph>[,./\[\];?!()'"]*)(?P<w>(<e1>)?(<e2>)?[a-zA-Z]+(</e1>)?(</e2>)?('s)?)(?P<pt>[,./\[\];?!()'"]*)"""
+WORD_PUNC_RE = r"""(?P<ph>[,./\[\];?!()'"]*)(?P<w>([a-zA-Z]+)?(<e1>)?(<e2>)?[a-zA-Z]+(</e1>)?(</e2>)?([a-zA-Z]+)?('s)?)(?P<pt>[,./\[\];?!()'"]*)"""
 PRICE_RE = r"""(?P<alias>(US)?)(?P<dollar>\$)(?P<number>\d+(\.\d+)?)(?P<punc>[,./\[\];?!()'"]?)"""
 NUM_RE = r"""(?P<num>\d+(\.\d+)?)(?P<punc>[,./\[\];?!()'"]?)"""
 
@@ -186,6 +186,7 @@ def read_train(input_path, output_path, max_len, padding=True):
     tokenizer.to_json(filename)
     with tf.io.TFRecordWriter(output_path) as writer:
         for label, (e1_pos, e2_pos), text in zip(labels, entity_poses, clean_texts):
+            print(text, e2_pos)
             example = parse_train_example(label_index, tokenizer, label, text, e1_pos, e2_pos, max_len, padding)
             writer.write(example.SerializeToString())
 
@@ -208,9 +209,17 @@ def read_test(input_path, output_path, tokenizer, max_len, padding=True):
 
 
 def add_position_feature(seq, entity_pos):
+    """
+    Relative position feature with tokens and entities
+    """
     positions = []
     for i in range(len(seq)):
-        positions.append(i - entity_pos)
+        if i in entity_pos:
+            positions.append(0)
+        elif i < entity_pos[0]:
+            positions.append(i - entity_pos[0])
+        else:
+            positions.append(i - entity_pos[-1])
     return positions
 
 
