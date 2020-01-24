@@ -113,14 +113,13 @@ def parse_raw_text(line):
     return line.split('\t')[1].strip('"')
 
 
-def parse_train_example(label_index, tokenizer, label, text, e1_pos, e2_pos, max_len, padding=True):
+def parse_train_example(label_index, pos_index, tokenizer, label, text, e1_pos, e2_pos, max_len, padding=True):
     """
     Raw text converted to tf.train.Example
-    :return:
     """
     seq = tokenizer.text_to_sequence(text, max_len, padding)
-    tokens_e1_pos_feature = add_position_feature(seq, e1_pos)
-    tokens_e2_pos_feature = add_position_feature(seq, e2_pos)
+    tokens_e1_pos_feature = add_position_feature(seq, e1_pos, pos_index)
+    tokens_e2_pos_feature = add_position_feature(seq, e2_pos, pos_index)
     rel_e1_pos_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=tokens_e1_pos_feature))
     rel_e2_pos_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=tokens_e2_pos_feature))
     seq_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=seq))
@@ -139,7 +138,7 @@ def parse_train_example(label_index, tokenizer, label, text, e1_pos, e2_pos, max
     return tf_example
 
 
-def parse_test_example(tokenizer, text, e1_pos, e2_pos, max_len, padding=True):
+def parse_test_example(tokenizer, pos_index, text, e1_pos, e2_pos, max_len, padding=True):
     """
     Raw text converted to tf.train.Example
     :return:
@@ -148,8 +147,8 @@ def parse_test_example(tokenizer, text, e1_pos, e2_pos, max_len, padding=True):
     seq_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=seq))
     e1_pos_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=e1_pos))
     e2_pos_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=e2_pos))
-    tokens_e1_pos_feature = add_position_feature(seq, e1_pos)
-    tokens_e2_pos_feature = add_position_feature(seq, e2_pos)
+    tokens_e1_pos_feature = add_position_feature(seq, e1_pos, pos_index)
+    tokens_e2_pos_feature = add_position_feature(seq, e2_pos, pos_index)
     rel_e1_pos_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=tokens_e1_pos_feature))
     rel_e2_pos_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=tokens_e2_pos_feature))
     feature = {
@@ -166,9 +165,6 @@ def parse_test_example(tokenizer, text, e1_pos, e2_pos, max_len, padding=True):
 def read_train(input_path, output_path, max_len, padding=True):
     """
     Read raw train file and convert into tf record format
-    :param input_path:
-    :param output_path:
-    :return:
     """
     labels, entity_poses, clean_texts = [], [], []
     with open(input_path) as f:
@@ -194,6 +190,14 @@ def read_train(input_path, output_path, max_len, padding=True):
             label_index[labels_unique[i]] = i
         with open(label_filename, 'w') as f:
             f.write(json.dumps(label_index, ensure_ascii=False))
+    pos_filename = os.path.join(os.path.split(output_path)[0], 'pos2id.json')
+    if os.path.exists(pos_filename):
+        with open(pos_filename) as f:
+            pos_index = json.loads(f.readline())
+    else:
+        pos_index = pos2id(max_len)
+        with open(pos_filename, 'w') as f:
+            f.write(json.dumps(pos_index, ensure_ascii=False))
     tokenizer = Tokenizer()
     tokenizer.fit_on_texts(clean_texts)
     # save tokenizer
@@ -201,14 +205,14 @@ def read_train(input_path, output_path, max_len, padding=True):
     tokenizer.to_json(filename)
     with tf.io.TFRecordWriter(output_path) as writer:
         for label, (e1_pos, e2_pos), text in zip(labels, entity_poses, clean_texts):
-            example = parse_train_example(label_index, tokenizer, label, text, e1_pos, e2_pos, max_len, padding)
+            example = parse_train_example(label_index, pos_index, tokenizer, label, text, e1_pos, e2_pos, max_len,
+                                          padding)
             writer.write(example.SerializeToString())
 
 
 def read_test(input_path, output_path, tokenizer, max_len, padding=True):
     """
     Read test file and convert into tf record format
-    :return:
     """
     entity_poses, clean_texts = [], []
     with open(input_path, 'r') as f:
@@ -216,24 +220,38 @@ def read_test(input_path, output_path, tokenizer, max_len, padding=True):
             e1_pos, e2_pos, clean_text = parse_text(parse_raw_text(line))
             entity_poses.append((e1_pos, e2_pos))
             clean_texts.append(clean_text)
+    pos_index_filename = os.path.join(os.path.split(output_path)[0], 'pos2id.json')
+    if os.path.exists(pos_index_filename):
+        with open(pos_index_filename) as f:
+            pos_index = json.loads(f.readline())
+    else:
+        raise FileNotFoundError('pos2id.json not found')
     with tf.io.TFRecordWriter(output_path) as writer:
         for (e1_pos, e2_pos), text in zip(entity_poses, clean_texts):
-            example = parse_test_example(tokenizer, text, e1_pos, e2_pos, max_len, padding)
+            example = parse_test_example(tokenizer, pos_index, text, e1_pos, e2_pos, max_len, padding)
             writer.write(example.SerializeToString())
 
 
-def add_position_feature(seq, entity_pos):
+def pos2id(max_len):
+    pos_index = {'0': 0}
+    for i in range(1, max_len):
+        pos_index[str(i)] = i
+        pos_index[str(-i)] = max_len + i - 1
+    return pos_index
+
+
+def add_position_feature(seq, entity_pos, pos_index):
     """
     Relative position feature with tokens and entities
     """
     positions = []
     for i in range(len(seq)):
         if i in entity_pos:
-            positions.append(0)
+            positions.append((pos_index['0']))
         elif i < entity_pos[0]:
-            positions.append(i - entity_pos[0])
+            positions.append(pos_index[str(i - entity_pos[0])])
         else:
-            positions.append(i - entity_pos[-1])
+            positions.append(pos_index[str(i - entity_pos[-1])])
     return positions
 
 
