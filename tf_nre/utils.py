@@ -1,3 +1,4 @@
+import json
 import os
 import re
 
@@ -5,8 +6,9 @@ import tensorflow as tf
 
 from tf_nre.tokenizer import Tokenizer
 
-WORD_PUNC_RE = r"""(?P<ph>[,./\[\];?!()'"]*)(?P<w>([a-zA-Z]+)?(<e1>)?(<e2>)?[a-zA-Z]+(</e1>)?(</e2>)?([a-zA-Z]+)?('s)?)(?P<pt>[,./\[\];?!()'"]*)"""
 PRICE_RE = r"""(?P<alias>(US)?)(?P<dollar>\$)(?P<number>\d+(\.\d+)?)(?P<punc>[,./\[\];?!()'"]?)"""
+WORD_NUM_RE = r"""(?P<token>[a-df-zA-Z]+)(?P<num>\d+)(?P<punc>[,./\[\];?!()'"]?)"""
+WORD_PUNC_RE = r"""(?P<ph>[,./\[\];?!()'"]*)(?P<w>([a-zA-Z]+)?(<e1>)?(<e2>)?[a-zA-Z]+(</e1>)?(</e2>)?([a-zA-Z]+)?('s)?)(?P<pt>[,./\[\];?!()'"]*)"""
 NUM_RE = r"""(?P<num>\d+(\.\d+)?)(?P<punc>[,./\[\];?!()'"]?)"""
 
 
@@ -67,7 +69,13 @@ def split_token_punctuation(token):
         if m.group('punc'):
             tokens.append(m.group('punc'))
         return tokens
-
+    # detect word+num
+    m = re.search(WORD_NUM_RE, token)
+    if m:
+        tokens = [m.group('token'), '[NUM]']
+        if m.group('punc'):
+            tokens.append(m.group('punc'))
+        return tokens
     # detect word
     m = re.search(WORD_PUNC_RE, token)
     if m:
@@ -175,10 +183,17 @@ def read_train(input_path, output_path, max_len, padding=True):
                 example_lines.clear()
             else:
                 example_lines.append(line.strip())
-    label_index = {}
-    labels_unique = list(set(labels))
-    for i in range(len(labels_unique)):
-        label_index[labels_unique[i]] = i
+    label_filename = os.path.join(os.path.split(output_path)[0], 'label2id.json')
+    if os.path.exists(label_filename):
+        with open(label_filename) as f:
+            label_index = json.loads(f.readline().strip())
+    else:
+        label_index = {}
+        labels_unique = list(set(labels))
+        for i in range(len(labels_unique)):
+            label_index[labels_unique[i]] = i
+        with open(label_filename, 'w') as f:
+            f.write(json.dumps(label_index, ensure_ascii=False))
     tokenizer = Tokenizer()
     tokenizer.fit_on_texts(clean_texts)
     # save tokenizer
@@ -186,7 +201,6 @@ def read_train(input_path, output_path, max_len, padding=True):
     tokenizer.to_json(filename)
     with tf.io.TFRecordWriter(output_path) as writer:
         for label, (e1_pos, e2_pos), text in zip(labels, entity_poses, clean_texts):
-            print(text, e2_pos)
             example = parse_train_example(label_index, tokenizer, label, text, e1_pos, e2_pos, max_len, padding)
             writer.write(example.SerializeToString())
 

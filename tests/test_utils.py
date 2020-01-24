@@ -45,12 +45,10 @@ def test_split_token_punctuation():
 
     token = "US$11.508"
     tokens = split_token_punctuation(token)
-    print(tokens)
     assert tokens == ["US", "$", "[NUM]"]
 
     token = "$11.00."
     tokens = split_token_punctuation(token)
-    print(tokens)
     assert tokens == ["$", "[NUM]", "."]
 
     token = "200"
@@ -64,6 +62,10 @@ def test_split_token_punctuation():
     token = "11.00."
     tokens = split_token_punctuation(token)
     assert tokens == ["[NUM]", "."]
+
+    token = 'v8'
+    tokens = split_token_punctuation(token)
+    assert tokens == ['v', '[NUM]']
 
 
 def test_text2tokens():
