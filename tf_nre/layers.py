@@ -19,8 +19,8 @@ class EncoderLayer(tf.keras.layers.Layer):
         self.we = layers.Embedding(vocab_size, dw, input_length=input_len, trainable=False)  # word embedding
         self.wpe = layers.Embedding(2 * input_len, dp, input_length=input_len,
                                     trainable=False)  # word position embedding
-        self.window_size = k
-        self.num_extra_token = input_len % k
+        self.input_len = input_len
+        self.num_ex_token = int((k - 1) / 2)
 
     def call(self, inputs, **kwargs):
         seq_inputs, e1_pos_inputs, e2_pos_inputs = inputs
@@ -29,27 +29,38 @@ class EncoderLayer(tf.keras.layers.Layer):
         seq_emb = self.we(seq_inputs)
         e1_pos_emb = self.wpe(e1_pos_inputs)
         e2_pos_emb = self.wpe(e2_pos_inputs)
-        seq_concat = layers.concatenate(
-            [seq_emb, e1_pos_emb, e2_pos_emb])  # (batch_size,length+2*num_extra_token,dw+2*dp)
+        seq_tensor = layers.concatenate(
+            [seq_emb, e1_pos_emb, e2_pos_emb])  # (batch_size,length+2*num_ex_token,dw+2*dp)
 
         # generate window tokens to capture contextual features
+        tokens = tf.split(seq_tensor, seq_tensor.shape[1], axis=1)
+        tokens = list(map(lambda x: tf.squeeze(x, axis=1), tokens))
+        contexts = self._capture_contextual_info(tokens)
+        contexts = tf.concat(contexts, axis=1)
+        return contexts  # (batch_size,length,(dw+2*dp)*k)
 
-        return seq_concat
+    def _capture_contextual_info(self, raw_tokens):
+        contexts = []
+        for i in range(self.num_ex_token, len(raw_tokens) - self.num_ex_token):
+            context = raw_tokens[i - self.num_ex_token:i] + [raw_tokens[i]] + raw_tokens[
+                                                                              i + 1:i + self.num_ex_token + 1]
+            contexts.append(tf.expand_dims(tf.concat(context, axis=1), axis=1))
+        return contexts
 
     def _extra_sequence_padding(self, tensor):
         """
         extra padding for sequence
         """
         padding = tf.reshape(tf.constant([0]), (-1, 1))
-        padding = tf.repeat(padding, self.num_extra_token, axis=1)
+        padding = tf.repeat(padding, self.num_ex_token, axis=1)
 
         return tf.concat([padding, tensor, padding], axis=1)
 
     def _extra_pos_padding(self, tensor):
         head_padding_value = tf.reshape(tensor[:, 0], shape=(-1, 1))
         tail_padding_value = tf.reshape(tensor[:, -1], shape=(-1, 1))
-        head_padding = tf.repeat(head_padding_value, self.num_extra_token, axis=1)
-        tail_padding = tf.repeat(tail_padding_value, self.num_extra_token, axis=1)
+        head_padding = tf.repeat(head_padding_value, self.num_ex_token, axis=1)
+        tail_padding = tf.repeat(tail_padding_value, self.num_ex_token, axis=1)
 
         return tf.concat([head_padding, tensor, tail_padding], axis=1)
 
