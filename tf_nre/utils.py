@@ -118,16 +118,26 @@ def parse_train_example(label_index, pos_index, tokenizer, label, text, e1_pos, 
     Raw text converted to tf.train.Example
     """
     seq = tokenizer.text_to_sequence(text, max_len, padding)
+    # extract entity from seq
+    e1, e2 = [], []
+    for p in e1_pos:
+        e1.append(seq[p])
+    for p in e2_pos:
+        e2.append(seq[p])
     tokens_e1_pos_feature = add_position_feature(seq, e1_pos, pos_index)
     tokens_e2_pos_feature = add_position_feature(seq, e2_pos, pos_index)
     rel_e1_pos_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=tokens_e1_pos_feature))
     rel_e2_pos_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=tokens_e2_pos_feature))
     seq_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=seq))
+    e1_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=e1))
+    e2_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=e2))
     label_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=[label_index[label]]))
     e1_pos_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=e1_pos))
     e2_pos_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=e2_pos))
     feature = {
         'text_seq': seq_feature,
+        'e1_seq': e1_feature,
+        'e2_seq': e2_feature,
         'e1_pos': e1_pos_feature,
         'e2_pos': e2_pos_feature,
         'rel_e1_pos': rel_e1_pos_feature,
@@ -145,14 +155,24 @@ def parse_test_example(tokenizer, pos_index, text, e1_pos, e2_pos, max_len, padd
     """
     seq = tokenizer.text_to_sequence(text, max_len, padding)
     seq_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=seq))
+    # extract entity from seq
+    e1, e2 = [], []
+    for p in e1_pos:
+        e1.append(seq[p])
+    for p in e2_pos:
+        e2.append(seq[p])
     e1_pos_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=e1_pos))
     e2_pos_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=e2_pos))
+    e1_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=e1))
+    e2_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=e2))
     tokens_e1_pos_feature = add_position_feature(seq, e1_pos, pos_index)
     tokens_e2_pos_feature = add_position_feature(seq, e2_pos, pos_index)
     rel_e1_pos_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=tokens_e1_pos_feature))
     rel_e2_pos_feature = tf.train.Feature(int64_list=tf.train.Int64List(value=tokens_e2_pos_feature))
     feature = {
         'text_seq': seq_feature,
+        'e1_seq': e1_feature,
+        'e2_seq': e2_feature,
         'e1_pos': e1_pos_feature,
         'e2_pos': e2_pos_feature,
         'rel_e1_pos': rel_e1_pos_feature,
