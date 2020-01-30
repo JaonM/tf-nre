@@ -2,7 +2,7 @@ import tensorflow as tf
 from tensorflow.keras import layers
 
 
-class EncoderLayer(tf.keras.layers.Layer):
+class EncoderLayer(layers.Layer):
     """
     Input representation layer
 
@@ -63,6 +63,33 @@ class EncoderLayer(tf.keras.layers.Layer):
         tail_padding = tf.repeat(tail_padding_value, self.num_ex_token, axis=1)
 
         return tf.concat([head_padding, tensor, tail_padding], axis=1)
+
+
+class EntityAttentionLayer(layers.Layer):
+    """
+    Compute attention between word and entity
+
+    Parameters:
+        dw: Dimension of word embedding
+    """
+
+    def __init__(self, dw, input_len, vocab_size, name='subject_att_layer', **kwargs):
+        super(EntityAttentionLayer, self).__init__(name, **kwargs)
+        self.we = layers.Embedding(vocab_size, dw, input_length=input_len, trainable=True)
+
+    def call(self, inputs, **kwargs):
+        entity_seq, token_seq = inputs  # (batch_size,entity_len) (batch_size,seq_len)
+        seq_emb = self.we(token_seq)  # (batch_size,seq_len,dw)
+        entity_token_emb = self.we(entity_seq)  # tf.RaggedTensor (batch_size,none,dw)
+        entity_emb = tf.reduce_mean(entity_token_emb, axis=1)  # (batch_size,dw)
+
+        # evaluate score between entity and tokens
+        entity_emb = tf.expand_dims(entity_emb, axis=1)
+        seq_emb = tf.transpose(seq_emb, perm=[0, 2, 1])  # (batch_size,dw,seq_len)
+        entity_seq = tf.matmul(entity_emb, seq_emb)  # (batch_size,1,seq_len)
+        entity_seq = tf.squeeze(entity_seq)
+        weight = tf.nn.softmax(entity_seq)
+        return weight
 
 
 if __name__ == '__main__':
