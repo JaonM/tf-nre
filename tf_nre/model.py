@@ -1,0 +1,2 @@
+class MultiLevelAttCNN(object):
+    pass

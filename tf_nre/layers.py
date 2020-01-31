@@ -22,6 +22,9 @@ class EncoderLayer(layers.Layer):
         self.input_len = input_len
         self.num_ex_token = int((k - 1) / 2)
 
+    def build(self, input_shape):
+        print(input_shape)
+
     def call(self, inputs, **kwargs):
         seq_inputs, e1_pos_inputs, e2_pos_inputs = inputs
         seq_inputs, e1_pos_inputs, e2_pos_inputs = self._extra_sequence_padding(seq_inputs), self._extra_pos_padding(
@@ -90,6 +93,32 @@ class EntityAttentionLayer(layers.Layer):
         entity_seq = tf.squeeze(entity_seq)
         weight = tf.nn.softmax(entity_seq)
         return weight
+
+
+class CNNAttentionLayer(layers.Layer):
+
+    def __init__(self, num_filter, filter_size, name='cnn_att_layer', **kwargs):
+        super(CNNAttentionLayer, self).__init__(name=name, **kwargs)
+        self.cnn = layers.Conv1D(num_filter, filter_size, use_bias=True, activation='tanh')
+        # self.Wl = layers.Embedding(label_size, label_dim, name='label embedding', trainable=True)
+        # self.label_dim = label_dim
+
+    def build(self, input_shape):
+        self.U = self.add_weight(name='weight_matrix', shape=[input_shape[0][1], input_shape[-1][-1]], trainable=True)
+
+    def call(self, inputs, **kwargs):
+        """
+            inputs: [R,label_emb]
+        """
+        R, label_emb = inputs
+        R_star = self.cnn(R)  # (batch_size,output_dim,num_filter)
+        R_star_T = tf.transpose(R_star, perm=[0, 2, 1])
+        label_emb = tf.transpose(label_emb)  # (label_dim,label_size)
+        G = tf.matmul(R_star_T, self.U)
+        G = tf.matmul(G, label_emb)  # (batch_size,num_filter,label_size)
+        A = tf.nn.softmax(G, axis=1)
+        O = tf.matmul(R_star, A)  # (batch_size,output_dim,label_size)
+        return tf.reduce_max(O, axis=2)  # (batch_size,output_dim)
 
 
 if __name__ == '__main__':
