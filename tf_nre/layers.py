@@ -99,26 +99,27 @@ class CNNAttentionLayer(layers.Layer):
 
     def __init__(self, num_filter, filter_size, name='cnn_att_layer', **kwargs):
         super(CNNAttentionLayer, self).__init__(name=name, **kwargs)
-        self.cnn = layers.Conv1D(num_filter, filter_size, use_bias=True, activation='tanh')
+        self.cnn = layers.Conv1D(num_filter, filter_size, use_bias=True, activation='tanh',
+                                 data_format='channels_first')
         # self.Wl = layers.Embedding(label_size, label_dim, name='label embedding', trainable=True)
-        # self.label_dim = label_dim
+        self.num_filter = num_filter
 
     def build(self, input_shape):
-        self.U = self.add_weight(name='weight_matrix', shape=[input_shape[0][1], input_shape[-1][-1]], trainable=True)
+        self.U = self.add_weight(name='weight_matrix', shape=[self.num_filter, input_shape[-1][-1]], trainable=True)
 
     def call(self, inputs, **kwargs):
         """
             inputs: [R,label_emb]
         """
-        R, label_emb = inputs
-        R_star = self.cnn(R)  # (batch_size,output_dim,num_filter)
-        R_star_T = tf.transpose(R_star, perm=[0, 2, 1])
+        R, label_emb = inputs  # (batch_size,seq_len,(dw+2dp)*k)
+        R_star = self.cnn(R)  # (batch_size,num_filter,output_dim)
+        R_star_T = tf.transpose(R_star, perm=[0, 2, 1])  # (batch_size,output_dim,num_filter)
         label_emb = tf.transpose(label_emb)  # (label_dim,label_size)
-        G = tf.matmul(R_star_T, self.U)
-        G = tf.matmul(G, label_emb)  # (batch_size,num_filter,label_size)
+        G = tf.matmul(R_star_T, self.U)  # (batch_size,output_dim,label_dim)
+        G = tf.matmul(G, label_emb)  # (batch_size,output_dim,label_size)
         A = tf.nn.softmax(G, axis=1)
-        O = tf.matmul(R_star, A)  # (batch_size,output_dim,label_size)
-        return tf.reduce_max(O, axis=2)  # (batch_size,output_dim)
+        O = tf.matmul(R_star, A)  # (batch_size,num_filter,label_size)
+        return tf.reduce_max(O, axis=2)  # (batch_size,num_filter)
 
 
 if __name__ == '__main__':
