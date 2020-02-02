@@ -100,7 +100,7 @@ class CNNAttentionLayer(layers.Layer):
     def __init__(self, num_filter, filter_size, name='cnn_att_layer', **kwargs):
         super(CNNAttentionLayer, self).__init__(name=name, **kwargs)
         self.cnn = layers.Conv1D(num_filter, filter_size, use_bias=True, activation='tanh',
-                                 data_format='channels_first')
+                                 data_format='channels_last')
         # self.Wl = layers.Embedding(label_size, label_dim, name='label embedding', trainable=True)
         self.num_filter = num_filter
 
@@ -111,8 +111,9 @@ class CNNAttentionLayer(layers.Layer):
         """
             inputs: [R,label_emb]
         """
-        R, label_emb = inputs  # (batch_size,seq_len,(dw+2dp)*k)
-        R_star = self.cnn(R)  # (batch_size,num_filter,output_dim)
+        R, label_emb = inputs  # (batch_size,seq_len,(dw+2dp)*k) (label_size,label_dim)
+        R_star = self.cnn(R)  # (batch_size,output_dim,num_filter)
+        R_star = tf.transpose(R_star, perm=[0, 2, 1])
         R_star_T = tf.transpose(R_star, perm=[0, 2, 1])  # (batch_size,output_dim,num_filter)
         label_emb = tf.transpose(label_emb)  # (label_dim,label_size)
         G = tf.matmul(R_star_T, self.U)  # (batch_size,output_dim,label_dim)
