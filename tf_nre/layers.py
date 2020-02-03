@@ -22,9 +22,6 @@ class EncoderLayer(layers.Layer):
         self.input_len = input_len
         self.num_ex_token = int((k - 1) / 2)
 
-    def build(self, input_shape):
-        print(input_shape)
-
     def call(self, inputs, **kwargs):
         seq_inputs, e1_pos_inputs, e2_pos_inputs = inputs
         seq_inputs, e1_pos_inputs, e2_pos_inputs = self._extra_sequence_padding(seq_inputs), self._extra_pos_padding(
