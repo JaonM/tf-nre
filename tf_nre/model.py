@@ -22,7 +22,9 @@ class MultiLevelAttCNN(tf.keras.Model):
         e2_att = self.entity_att([e2_seq, token_seq])  # (batch_size,seq_len)
         entity_att = (e1_att + e2_att) / 2
         contexts = tf.multiply(contexts, entity_att)
-        out = self.cnn_att([contexts,self.label_emb])
+        out = self.cnn_att([contexts, self.label_emb])
+        # TODO difference output between training and inference
+        return out
 
 
 def loss():
