@@ -87,7 +87,7 @@ class EntityAttentionLayer(layers.Layer):
         entity_emb = tf.expand_dims(entity_emb, axis=1)
         seq_emb = tf.transpose(seq_emb, perm=[0, 2, 1])  # (batch_size,dw,seq_len)
         entity_seq = tf.matmul(entity_emb, seq_emb)  # (batch_size,1,seq_len)
-        entity_seq = tf.squeeze(entity_seq)
+        entity_seq = tf.squeeze(entity_seq,axis=1)
         weight = tf.nn.softmax(entity_seq)
         return weight
 
@@ -112,12 +112,17 @@ class CNNAttentionLayer(layers.Layer):
         R_star = self.cnn(R)  # (batch_size,output_dim,num_filter)
         R_star = tf.transpose(R_star, perm=[0, 2, 1])
         R_star_T = tf.transpose(R_star, perm=[0, 2, 1])  # (batch_size,output_dim,num_filter)
-        label_emb = tf.transpose(label_emb)  # (label_dim,label_size)
+        label_emb_T = tf.transpose(label_emb)  # (label_dim,label_size)
         G = tf.matmul(R_star_T, self.U)  # (batch_size,output_dim,label_dim)
-        G = tf.matmul(G, label_emb)  # (batch_size,output_dim,label_size)
+        G = tf.matmul(G, label_emb_T)  # (batch_size,output_dim,label_size)
         A = tf.nn.softmax(G, axis=1)
         O = tf.matmul(R_star, A)  # (batch_size,num_filter,label_size)
-        return tf.reduce_max(O, axis=2)  # (batch_size,num_filter)
+        if 'training' in kwargs and not kwargs['training']:
+            O = tf.transpose(O, [0, 2, 1])  # (batch_size,label_size,num_filter)
+            O = tf.norm(O - label_emb, axis=2)  # (batch_size,label_size)
+            return tf.argmin(O, axis=1)
+        else:
+            return tf.reduce_max(O, axis=2)  # (batch_size,num_filter)
 
 
 if __name__ == '__main__':
