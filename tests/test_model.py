@@ -8,7 +8,7 @@ def test_model():
     e1_seq, e2_seq = tf.constant([[1]]), tf.constant([[3, 4]])
     model = MultiLevelAttCNN(10, 3, 3, 5, 4, 8, 3, 19, 8)
     out = model([seq, e1_pos, e2_pos, e1_seq, e2_seq], training=True)
-    assert out.shape ==(1,8)
+    assert out.shape == (1, 8)
 
     out = model([seq, e1_pos, e2_pos, e1_seq, e2_seq], training=False)
     assert out.shape == (1,)
