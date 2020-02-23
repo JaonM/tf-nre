@@ -24,5 +24,4 @@ def test_loss_fn():
     label = tf.constant(np.random.randint(0, 19, 32))
     label_emb = tf.constant(np.random.rand(19, 128))
     l = loss_fn(predicted,label,label_emb)
-    print(l)
-    assert l == (1)
+    assert l == (32,)
