@@ -8,7 +8,7 @@ def loss_fn(predicted, label, label_emb):
     :param predicted: tensor (batch_size,num_filter)
     :param label: tensor (batch_size,)
     :param label_emb: tensor (label_size,label_dim)
-    :return:
+    :return: (batch_size)
     """
     y = locate_label_dim(label, label_emb)
     y_f = locate_farthest_label(predicted, label_emb)
