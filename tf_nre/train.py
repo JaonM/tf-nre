@@ -1,6 +1,10 @@
 # training process
 import tensorflow as tf
 
+# Hyper Parameters
+MAX_LEN = 100
+L2_PARAM = 0.001
+
 
 def loss_fn(predicted, label, label_emb):
     """
