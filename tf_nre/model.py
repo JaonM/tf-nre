@@ -3,7 +3,7 @@ from tf_nre.layers import *
 
 class MultiLevelAttCNN(tf.keras.Model):
     """
-    TODO encoder+entity attention+input attention composition+cnn attention pooling+label embedding
+    encoder+entity attention+input attention composition+cnn attention pooling+label embedding
     """
 
     def __init__(self, dw, dp, k, vocab_size, input_len, num_filter, filter_size, label_size, label_dim,
@@ -27,5 +27,3 @@ class MultiLevelAttCNN(tf.keras.Model):
         return out
 
 
-def loss():
-    pass

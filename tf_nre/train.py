@@ -4,6 +4,10 @@ import tensorflow as tf
 # Hyper Parameters
 MAX_LEN = 100
 L2_PARAM = 0.001
+LEARNING_RATE = 0.03
+CONV_SIZE = 1000
+KERNEL_SIZE = 4
+POS_EMB_SIZE = 25
 
 
 def loss_fn(predicted, label, label_emb):

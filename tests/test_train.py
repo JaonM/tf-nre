@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 
-from tf_nre.train import distance_fn, locate_farthest_label,loss_fn
+from tf_nre.train import distance_fn, locate_farthest_label, loss_fn
 
 
 def test_distance_fn():
@@ -24,4 +24,4 @@ def test_loss_fn():
     label = tf.constant(np.random.randint(0, 19, 32))
     label_emb = tf.constant(np.random.rand(19, 128))
     l = loss_fn(predicted,label,label_emb)
-    assert l == (32,)
+    assert l.shape == (32,)
