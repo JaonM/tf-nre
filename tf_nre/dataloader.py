@@ -12,8 +12,8 @@ class DataLoader(object):
             'text_seq': tf.io.FixedLenFeature((self.max_len,), tf.int64),
             'e1_seq': tf.io.VarLenFeature(tf.int64),
             'e2_seq': tf.io.VarLenFeature(tf.int64),
-            'rel_e1_pos': tf.io.FixedLenFeature((self.max_len,), tf.int64),
             # Need be changed to RaggedTensor after batching
+            'rel_e1_pos': tf.io.FixedLenFeature((self.max_len,), tf.int64),
             'rel_e2_pos': tf.io.FixedLenFeature((self.max_len,), tf.int64),
             'label': tf.io.FixedLenFeature((1,), tf.int64)
         }
