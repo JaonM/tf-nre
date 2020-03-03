@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 
 from tf_nre.layers import EncoderLayer, EntityAttentionLayer, CNNAttentionLayer
+from tf_nre.train import compute_label_emb_size
 
 
 def test_encoder_layer():
@@ -22,8 +23,11 @@ def test_entity_attention_layer():
 
 def test_cnn_attention_layer():
     R = tf.constant(np.random.rand(3, 10, 48))
-    label_emb = tf.constant(np.random.rand(19, 10))
-
+    label_emb_size = compute_label_emb_size(10, 3)
+    label_emb = tf.constant(np.random.rand(19, label_emb_size))
     layer = CNNAttentionLayer(32, 3)
-    out = layer([R, label_emb])
-    assert out.shape == (3, 32)
+    out = layer([R, label_emb], training=True)
+    assert out.shape == (3, label_emb_size)
+
+    out = layer([R, label_emb], training=False)
+    assert out.shape == (3,)

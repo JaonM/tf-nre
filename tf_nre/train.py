@@ -11,7 +11,7 @@ L2_PARAM = 0.001
 CONV_SIZE = 1000
 KERNEL_SIZE = 4
 POS_EMB_SIZE = 25
-WORD_EMB_SIZE = 300
+WORD_EMB_SIZE = 100
 LABEL_EMB_SIZE = 100
 WINDOW_SIZE = 3
 NUM_LABEL = 19
@@ -21,9 +21,15 @@ NUM_EPOCH = 10
 BATCH_SIZE = 32
 LEARNING_RATE = 0.03
 
-TOKENIZER_PATH = '.'
-TRAIN_DATA_PATH = '.'
-TEST_DATA_PATH = '.'
+TOKENIZER_PATH = 'data/input/tokenizer.json'
+TRAIN_DATA_PATH = 'data/input/train.tfrecord'
+TEST_DATA_PATH = 'data/input/test.tfrecord'
+
+
+def compute_label_emb_size(seq_len, kernel_size, padding=0, stride=1):
+    size = (seq_len - kernel_size + 2 * padding) / stride + 1
+    assert size - int(size) == 0    # 判断size是否为整数
+    return int(size)
 
 
 def loss_fn(predicted, label, label_emb):
@@ -107,7 +113,7 @@ def train():
         print('Finishing {} epoch training'.format(epoch))
 
 
-@tf.function
+# @tf.function
 def train_step(optimizer, model, inputs, labels):
     with tf.GradientTape() as tape:
         predicted = model(inputs, training=True)

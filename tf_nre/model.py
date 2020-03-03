@@ -9,7 +9,7 @@ class MultiLevelAttCNN(tf.keras.Model):
     def __init__(self, dw, dp, k, vocab_size, input_len, num_filter, filter_size, label_size, label_dim,
                  name='multi_level_cnn', **kwargs):
         super(MultiLevelAttCNN, self).__init__(name=name, **kwargs)
-        assert num_filter == label_dim
+        # assert num_filter == label_dim
         self.encoder = EncoderLayer(dw, dp, k, input_len, vocab_size)
         self.entity_att = EntityAttentionLayer(dw, input_len, vocab_size)
         self.cnn_att = CNNAttentionLayer(num_filter, filter_size)
