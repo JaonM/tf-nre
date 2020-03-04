@@ -51,7 +51,7 @@ class EncoderLayer(layers.Layer):
         """
         extra padding for sequence
         """
-        padding = tf.reshape(tf.constant([0]), (-1, 1))
+        padding = tf.reshape(tf.constant([0] * tensor.shape[0]), (-1, 1))
         padding = tf.repeat(padding, self.num_ex_token, axis=1)
 
         return tf.concat([padding, tensor, padding], axis=1)
@@ -73,9 +73,10 @@ class EntityAttentionLayer(layers.Layer):
         dw: Dimension of word embedding
     """
 
-    def __init__(self, dw, input_len, vocab_size, name='subject_att_layer', **kwargs):
+    def __init__(self, dw, input_len, vocab_size, l2, name='subject_att_layer', **kwargs):
         super(EntityAttentionLayer, self).__init__(name, **kwargs)
-        self.we = layers.Embedding(vocab_size, dw, input_length=input_len, trainable=True)
+        self.we = layers.Embedding(vocab_size, dw, input_length=input_len, trainable=True,
+                                   embeddings_regularizer=tf.keras.regularizers.l2(l2))
 
     def call(self, inputs, **kwargs):
         entity_seq, token_seq = inputs  # (batch_size,entity_len) (batch_size,seq_len)
@@ -94,12 +95,12 @@ class EntityAttentionLayer(layers.Layer):
 
 class CNNAttentionLayer(layers.Layer):
 
-    def __init__(self, num_filter, filter_size, name='cnn_att_layer', **kwargs):
+    def __init__(self, num_filter, filter_size, l2, name='cnn_att_layer', **kwargs):
         super(CNNAttentionLayer, self).__init__(name=name, **kwargs)
         self.cnn = layers.Conv1D(num_filter, filter_size, use_bias=True, activation='tanh',
+                                 kernel_regularizer=tf.keras.regularizers.l2(l2),
                                  data_format='channels_last')  # only support channel_last in CPU
         self.num_filter = num_filter
-        self.U = self.add_weight(name='weigth_matrix', shape=[8, 8])
 
     def build(self, input_shape):
         self.U = self.add_weight(name='weight_matrix', shape=(input_shape[1][-1], input_shape[1][-1]),

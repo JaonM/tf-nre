@@ -12,7 +12,6 @@ CONV_SIZE = 1000
 KERNEL_SIZE = 4
 POS_EMB_SIZE = 25
 WORD_EMB_SIZE = 100
-LABEL_EMB_SIZE = 100
 WINDOW_SIZE = 3
 NUM_LABEL = 19
 
@@ -96,19 +95,22 @@ def train():
     dataset = dataloader.get_dataset('data/input/train.tfrecord', True)
 
     model = init_model(TOKENIZER_PATH, WORD_EMB_SIZE, POS_EMB_SIZE, WINDOW_SIZE, MAX_LEN, CONV_SIZE, KERNEL_SIZE,
-                       NUM_LABEL, LABEL_EMB_SIZE)
+                       NUM_LABEL, compute_label_emb_size(MAX_LEN, KERNEL_SIZE))
     optimizer = tf.keras.optimizers.Adam(0.001)
     for epoch in range(NUM_EPOCH):
         print('Shuffling data...')
         dataset = dataset.shuffle(1024)
         dataset = dataset.batch(BATCH_SIZE)
+        print('Start training epoch {}'.format(epoch))
         for batch_data in dataset:
-            text_seq, e1_seq, e2_seq, rel_e1_seq, rel_e2_seq, label = batch_data['text_seq'], batch_data['e1_seq'], \
-                                                                      batch_data['e2_seq'], batch_data['rel_e1_seq'], \
-                                                                      batch_data['rel_e2_seq'], batch_data['label']
-            rel_e1_seq = tf.RaggedTensor.from_sparse(rel_e1_seq)
-            rel_e2_seq = tf.RaggedTensor.from_sparse(rel_e2_seq)
-            inputs = [text_seq, rel_e1_seq, rel_e2_seq, e1_seq, e2_seq]
+            text_seq, e1_seq, e2_seq, rel_e1_pos, rel_e2_pos, label = batch_data['text_seq'], batch_data['e1_seq'], \
+                                                                      batch_data['e2_seq'], batch_data['rel_e1_pos'], \
+                                                                      batch_data['rel_e2_pos'], batch_data['label']
+            e1_seq = tf.RaggedTensor.from_sparse(e1_seq)
+            e2_seq = tf.RaggedTensor.from_sparse(e2_seq)
+            inputs = [tf.cast(text_seq, dtype=tf.int32), tf.cast(rel_e1_pos, dtype=tf.int32),
+                      tf.cast(rel_e2_pos, dtype=tf.int32), e1_seq, e2_seq]
+            label = tf.squeeze(label)
             train_step(optimizer, model, inputs, label)
         print('Finishing {} epoch training'.format(epoch))
 
@@ -127,7 +129,7 @@ def init_model(tokenizer_filename, word_emb_size, pos_emb_size, window_size, max
                label_emb_size):
     tokenizer = Tokenizer.from_json(tokenizer_filename)
     model = MultiLevelAttCNN(word_emb_size, pos_emb_size, window_size, len(tokenizer.word_index), max_len, conv_size,
-                             kernel_size, num_label, label_emb_size)
+                             kernel_size, num_label, label_emb_size, L2_PARAM)
     return model
 
 

@@ -23,5 +23,5 @@ def test_loss_fn():
     predicted = tf.constant(np.random.rand(32, 128))
     label = tf.constant(np.random.randint(0, 19, 32))
     label_emb = tf.constant(np.random.rand(19, 128))
-    l = loss_fn(predicted,label,label_emb)
+    l = loss_fn(predicted, label, label_emb)
     assert l.shape == (32,)
