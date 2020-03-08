@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 
 from tf_nre.layers import EncoderLayer, EntityAttentionLayer, CNNAttentionLayer
-from tf_nre.train import compute_label_emb_size
+from tf_nre.main import compute_label_emb_size
 
 
 def test_encoder_layer():

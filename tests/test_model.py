@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 from tf_nre.model import MultiLevelAttCNN
-from tf_nre.train import compute_label_emb_size, L2_PARAM
+from tf_nre.main import compute_label_emb_size, L2_PARAM
 
 
 def test_model():

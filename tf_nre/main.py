@@ -24,10 +24,12 @@ TOKENIZER_PATH = 'data/input/tokenizer.json'
 TRAIN_DATA_PATH = 'data/input/train.tfrecord'
 TEST_DATA_PATH = 'data/input/test.tfrecord'
 
+MODEL_PATH = 'model/'
+
 
 def compute_label_emb_size(seq_len, kernel_size, padding=0, stride=1):
     size = (seq_len - kernel_size + 2 * padding) / stride + 1
-    assert size - int(size) == 0    # 判断size是否为整数
+    assert size - int(size) == 0  # 判断size是否为整数
     return int(size)
 
 
@@ -37,12 +39,12 @@ def loss_fn(predicted, label, label_emb):
     :param predicted: tensor (batch_size,num_filter)
     :param label: tensor (batch_size,)
     :param label_emb: tensor (label_size,label_dim)
-    :return: (batch_size)
+    :return: loss tensor
     """
     y = locate_label_dim(label, label_emb)
     y_f = locate_farthest_label(predicted, label_emb)
     l = 1 + distance_fn(predicted, y) - distance_fn(predicted, y_f)
-    return l
+    return tf.reduce_mean(l)
 
 
 def locate_label_dim(label, label_emb):
@@ -90,13 +92,13 @@ def distance_fn(predicted, label_tensor):
     return tf.norm(predicted - label_tensor, axis=1)
 
 
-def train():
+def train(verbose=False):
     dataloader = DataLoader(MAX_LEN)
     dataset = dataloader.get_dataset('data/input/train.tfrecord', True)
 
     model = init_model(TOKENIZER_PATH, WORD_EMB_SIZE, POS_EMB_SIZE, WINDOW_SIZE, MAX_LEN, CONV_SIZE, KERNEL_SIZE,
                        NUM_LABEL, compute_label_emb_size(MAX_LEN, KERNEL_SIZE))
-    optimizer = tf.keras.optimizers.Adam(0.001)
+    optimizer = tf.keras.optimizers.Adam(LEARNING_RATE)
     for epoch in range(NUM_EPOCH):
         print('Shuffling data...')
         dataset = dataset.shuffle(1024)
@@ -111,16 +113,19 @@ def train():
             inputs = [tf.cast(text_seq, dtype=tf.int32), tf.cast(rel_e1_pos, dtype=tf.int32),
                       tf.cast(rel_e2_pos, dtype=tf.int32), e1_seq, e2_seq]
             label = tf.squeeze(label)
-            train_step(optimizer, model, inputs, label)
+            train_step(optimizer, model, inputs, label, verbose=verbose)
         print('Finishing {} epoch training'.format(epoch))
+    tf.saved_model.save(model, MODEL_PATH)
 
 
 # @tf.function
-def train_step(optimizer, model, inputs, labels):
+def train_step(optimizer, model, inputs, labels, verbose=False):
     with tf.GradientTape() as tape:
         predicted = model(inputs, training=True)
         regularization_loss = tf.math.add_n(model.losses)
         loss = loss_fn(predicted, labels, model.label_emb) + regularization_loss
+        if verbose:
+            print('current loss', loss.numpy())
     gradients = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
@@ -133,5 +138,10 @@ def init_model(tokenizer_filename, word_emb_size, pos_emb_size, window_size, max
     return model
 
 
+def test():
+    dataloader = DataLoader(MAX_LEN)
+    dataset = dataloader.get_dataset('data/input/train.tfrecord', True)
+
+
 if __name__ == '__main__':
-    train()
+    train(True)
