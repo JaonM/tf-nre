@@ -23,7 +23,7 @@ class MultiLevelAttCNN(tf.keras.Model):
         entity_att = (e1_att + e2_att) / 2
         entity_att = tf.expand_dims(entity_att, axis=2)
         contexts = tf.multiply(entity_att, contexts)
-        out = self.cnn_att([contexts, self.label_emb], training=training)  # (batch_size,1) or (batch_size,num_filter)
+        out = self.cnn_att([contexts, self.label_emb], training=training)  # (batch_size,) or (batch_size,out_dim)
         return out
 
 

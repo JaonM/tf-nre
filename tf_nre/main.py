@@ -1,4 +1,6 @@
 # training process
+import json
+
 import tensorflow as tf
 
 from tf_nre.dataloader import DataLoader
@@ -23,8 +25,11 @@ LEARNING_RATE = 0.03
 TOKENIZER_PATH = 'data/input/tokenizer.json'
 TRAIN_DATA_PATH = 'data/input/train.tfrecord'
 TEST_DATA_PATH = 'data/input/test.tfrecord'
+ID2LABEL_PATH = 'data/input/id2label.json'
+RESULT_PATH = 'data/output/prediction.json'
 
 MODEL_PATH = 'model/'
+LABEL_PATH = 'data/input/label2id.json'
 
 
 def compute_label_emb_size(seq_len, kernel_size, padding=0, stride=1):
@@ -138,9 +143,32 @@ def init_model(tokenizer_filename, word_emb_size, pos_emb_size, window_size, max
     return model
 
 
-def test():
+def test(verbose=False):
     dataloader = DataLoader(MAX_LEN)
-    dataset = dataloader.get_dataset('data/input/train.tfrecord', True)
+    dataset = dataloader.get_dataset('data/input/test.tfrecord', True)
+    id2label = json.loads(ID2LABEL_PATH)
+    model = tf.saved_model.load(MODEL_PATH)
+    labels = []
+    if verbose:
+        print("start prediction...")
+    count = 8000
+    for batch_data in dataset:
+        text_seq, e1_seq, e2_seq, rel_e1_pos, rel_e2_pos = batch_data['text_seq'], batch_data['e1_seq'], \
+                                                           batch_data['e2_seq'], batch_data['rel_e1_pos'], \
+                                                           batch_data['rel_e2_pos']
+        e1_seq = tf.RaggedTensor.from_sparse(e1_seq)
+        e2_seq = tf.RaggedTensor.from_sparse(e2_seq)
+        inputs = [tf.cast(text_seq, dtype=tf.int32), tf.cast(rel_e1_pos, dtype=tf.int32),
+                  tf.cast(rel_e2_pos, dtype=tf.int32), e1_seq, e2_seq]
+        preds = model(inputs, training=False)  # (batch_size,)
+        for pred in preds:
+            count += 1
+            labels.append({"id": count, "label": id2label[pred]})
+    if verbose:
+        with open("writing prediction to file") as f:
+            for d in labels:
+                f.write(str(d['id']) + '\t' + d['label'])
+                f.write('\n')
 
 
 if __name__ == '__main__':

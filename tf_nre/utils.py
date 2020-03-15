@@ -199,17 +199,24 @@ def read_train(input_path, output_path, max_len, padding=True):
                 example_lines.clear()
             else:
                 example_lines.append(line.strip())
-    label_filename = os.path.join(os.path.split(output_path)[0], 'label2id.json')
-    if os.path.exists(label_filename):
-        with open(label_filename) as f:
+    label2id_filename = os.path.join(os.path.split(output_path)[0], 'label2id.json')
+    if os.path.exists(label2id_filename):
+        with open(label2id_filename) as f:
             label_index = json.loads(f.readline().strip())
     else:
         label_index = {}
         labels_unique = list(set(labels))
         for i in range(len(labels_unique)):
             label_index[labels_unique[i]] = i
-        with open(label_filename, 'w') as f:
+        with open(label2id_filename, 'w') as f:
             f.write(json.dumps(label_index, ensure_ascii=False))
+    id2label_filename = os.path.join(os.path.split(output_path)[0], 'id2label.json')
+    if not os.path.exists(id2label_filename):
+        id2label = dict()
+        for key, value in label_index.items():
+            id2label[value] = key
+        with open(id2label_filename, 'w') as f:
+            f.write(json.dumps(id2label, ensure_ascii=False))
     pos_filename = os.path.join(os.path.split(output_path)[0], 'pos2id.json')
     if os.path.exists(pos_filename):
         with open(pos_filename) as f:
