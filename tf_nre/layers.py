@@ -16,7 +16,7 @@ class EncoderLayer(layers.Layer):
 
     def __init__(self, dw, dp, k, input_len, vocab_size, emb_weights, name='input_encoder', **kwargs):
         super(EncoderLayer, self).__init__(name=name, **kwargs)
-        if not emb_weights:
+        if emb_weights is None:
             self.we = layers.Embedding(vocab_size, dw, input_length=input_len, trainable=False)  # word embedding
         else:
             self.we = self.we = layers.Embedding(vocab_size, dw, input_length=input_len,

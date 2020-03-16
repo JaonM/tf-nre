@@ -283,6 +283,6 @@ def add_position_feature(seq, entity_pos, pos_index):
 
 
 if __name__ == '__main__':
-    read_train('data/training/TRAIN_FILE.TXT', 'data/input/train.tfrecord', 100)
+    read_train('data/training/TRAIN_FILE_SAMPLE.TXT', 'data/input/train.tfrecord', 100)
     tokenizer = Tokenizer.from_json('data/input/tokenizer.json')
     read_test('data/testing/TEST_FILE.txt', 'data/input/test.tfrecord', tokenizer, 100)

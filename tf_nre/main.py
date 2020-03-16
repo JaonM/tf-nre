@@ -14,13 +14,13 @@ L2_PARAM = 0.001
 CONV_SIZE = 1000
 KERNEL_SIZE = 4
 POS_EMB_SIZE = 25
-WORD_EMB_SIZE = 100
+WORD_EMB_SIZE = 300
 WINDOW_SIZE = 3
 NUM_LABEL = 19
 
 # Training Parameters
 NUM_EPOCH = 10
-BATCH_SIZE = 32
+BATCH_SIZE = 4
 LEARNING_RATE = 0.03
 
 TOKENIZER_PATH = 'data/input/tokenizer.json'
@@ -31,21 +31,21 @@ RESULT_PATH = 'data/output/prediction.json'
 
 MODEL_PATH = 'model/'
 LABEL_PATH = 'data/input/label2id.json'
-EMBED_PATH = 'data/input/'
+EMBED_PATH = 'data/input/glove.840B.300d.txt'
 
 
-def load_embedding():
+def load_embedding(emb_size):
     word2vec = dict()
     with open(EMBED_PATH) as f:
         for line in f:
             data = line.split()
-            word2vec[data[0].strip()] = np.asarray(data[1:], np.float32)
+            word2vec[' '.join(data[0:emb_size])] = np.asarray(data[-emb_size:], np.float32)
     with open(TOKENIZER_PATH) as f:
         word_index = json.loads(f.readline().strip())
     embedding_matrix = np.random.uniform(-1, 1, (len(word_index), WORD_EMB_SIZE))
     for word, index in word_index.items():
-        vector = word2vec[word]
-        if vector is not None:
+        if word in word2vec:
+            vector = word2vec[word]
             embedding_matrix[index] = vector
     return embedding_matrix
 
@@ -115,29 +115,26 @@ def distance_fn(predicted, label_tensor):
     return tf.norm(predicted - label_tensor, axis=1)
 
 
-def train(verbose=False):
+def train(verbose=False, use_embedding=False):
     dataloader = DataLoader(MAX_LEN)
     dataset = dataloader.get_dataset('data/input/train.tfrecord', True)
 
     model = init_model(TOKENIZER_PATH, WORD_EMB_SIZE, POS_EMB_SIZE, WINDOW_SIZE, MAX_LEN, CONV_SIZE, KERNEL_SIZE,
-                       NUM_LABEL, compute_label_emb_size(MAX_LEN, KERNEL_SIZE))
+                       NUM_LABEL, compute_label_emb_size(MAX_LEN, KERNEL_SIZE), use_embedding)
     optimizer = tf.keras.optimizers.Adam(LEARNING_RATE)
-    for epoch in range(NUM_EPOCH):
-        print('Shuffling data...')
-        dataset = dataset.shuffle(1024)
-        dataset = dataset.batch(BATCH_SIZE)
-        print('Start training epoch {}'.format(epoch))
-        for batch_data in dataset:
-            text_seq, e1_seq, e2_seq, rel_e1_pos, rel_e2_pos, label = batch_data['text_seq'], batch_data['e1_seq'], \
-                                                                      batch_data['e2_seq'], batch_data['rel_e1_pos'], \
-                                                                      batch_data['rel_e2_pos'], batch_data['label']
-            e1_seq = tf.RaggedTensor.from_sparse(e1_seq)
-            e2_seq = tf.RaggedTensor.from_sparse(e2_seq)
-            inputs = [tf.cast(text_seq, dtype=tf.int32), tf.cast(rel_e1_pos, dtype=tf.int32),
-                      tf.cast(rel_e2_pos, dtype=tf.int32), e1_seq, e2_seq]
-            label = tf.squeeze(label)
-            train_step(optimizer, model, inputs, label, verbose=verbose)
-        print('Finishing {} epoch training'.format(epoch))
+    dataset = dataset.shuffle(1024).batch(BATCH_SIZE)
+    dataset = dataset.repeat(NUM_EPOCH)
+
+    for batch_data in dataset:
+        text_seq, e1_seq, e2_seq, rel_e1_pos, rel_e2_pos, label = batch_data['text_seq'], batch_data['e1_seq'], \
+                                                                  batch_data['e2_seq'], batch_data['rel_e1_pos'], \
+                                                                  batch_data['rel_e2_pos'], batch_data['label']
+        e1_seq = tf.RaggedTensor.from_sparse(e1_seq)
+        e2_seq = tf.RaggedTensor.from_sparse(e2_seq)
+        inputs = [tf.cast(text_seq, dtype=tf.int32), tf.cast(rel_e1_pos, dtype=tf.int32),
+                  tf.cast(rel_e2_pos, dtype=tf.int32), e1_seq, e2_seq]
+        label = tf.squeeze(label)
+        train_step(optimizer, model, inputs, label, verbose=verbose)
     tf.saved_model.save(model, MODEL_PATH)
 
 
@@ -154,10 +151,15 @@ def train_step(optimizer, model, inputs, labels, verbose=False):
 
 
 def init_model(tokenizer_filename, word_emb_size, pos_emb_size, window_size, max_len, conv_size, kernel_size, num_label,
-               label_emb_size):
+               label_emb_size, use_embedding=False):
     tokenizer = Tokenizer.from_json(tokenizer_filename)
-    model = MultiLevelAttCNN(word_emb_size, pos_emb_size, window_size, len(tokenizer.word_index), max_len, conv_size,
-                             kernel_size, num_label, label_emb_size, L2_PARAM)
+    if not use_embedding:
+        model = MultiLevelAttCNN(word_emb_size, pos_emb_size, window_size, len(tokenizer.word_index), max_len,
+                                 conv_size, kernel_size, num_label, label_emb_size, L2_PARAM)
+    else:
+        weights = load_embedding(WORD_EMB_SIZE)
+        model = MultiLevelAttCNN(word_emb_size, pos_emb_size, window_size, len(tokenizer.word_index), max_len,
+                                 conv_size, kernel_size, num_label, label_emb_size, L2_PARAM, weights)
     return model
 
 
@@ -191,4 +193,4 @@ def test(verbose=False):
 
 
 if __name__ == '__main__':
-    train(True)
+    train(True, True)
