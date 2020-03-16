@@ -1,6 +1,7 @@
 # training process
 import json
 
+import numpy as np
 import tensorflow as tf
 
 from tf_nre.dataloader import DataLoader
@@ -30,6 +31,23 @@ RESULT_PATH = 'data/output/prediction.json'
 
 MODEL_PATH = 'model/'
 LABEL_PATH = 'data/input/label2id.json'
+EMBED_PATH = 'data/input/'
+
+
+def load_embedding():
+    word2vec = dict()
+    with open(EMBED_PATH) as f:
+        for line in f:
+            data = line.split()
+            word2vec[data[0].strip()] = np.asarray(data[1:], np.float32)
+    with open(TOKENIZER_PATH) as f:
+        word_index = json.loads(f.readline().strip())
+    embedding_matrix = np.random.uniform(-1, 1, (len(word_index), WORD_EMB_SIZE))
+    for word, index in word_index.items():
+        vector = word2vec[word]
+        if vector is not None:
+            embedding_matrix[index] = vector
+    return embedding_matrix
 
 
 def compute_label_emb_size(seq_len, kernel_size, padding=0, stride=1):
@@ -165,7 +183,8 @@ def test(verbose=False):
             count += 1
             labels.append({"id": count, "label": id2label[pred]})
     if verbose:
-        with open("writing prediction to file") as f:
+        print("writing prediction to file...")
+        with open(RESULT_PATH) as f:
             for d in labels:
                 f.write(str(d['id']) + '\t' + d['label'])
                 f.write('\n')

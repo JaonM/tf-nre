@@ -14,9 +14,14 @@ class EncoderLayer(layers.Layer):
         vocab_size: Vocabulary size
     """
 
-    def __init__(self, dw, dp, k, input_len, vocab_size, name='input_encoder', **kwargs):
+    def __init__(self, dw, dp, k, input_len, vocab_size, emb_weights, name='input_encoder', **kwargs):
         super(EncoderLayer, self).__init__(name=name, **kwargs)
-        self.we = layers.Embedding(vocab_size, dw, input_length=input_len, trainable=False)  # word embedding
+        if not emb_weights:
+            self.we = layers.Embedding(vocab_size, dw, input_length=input_len, trainable=False)  # word embedding
+        else:
+            self.we = self.we = layers.Embedding(vocab_size, dw, input_length=input_len,
+                                                 embeddings_initializer=tf.keras.initializers.Constant(emb_weights),
+                                                 trainable=False)  # pre-trained word embedding
         self.wpe = layers.Embedding(2 * input_len, dp, input_length=input_len,
                                     trainable=False)  # word position embedding
         self.input_len = input_len
