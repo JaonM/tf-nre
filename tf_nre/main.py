@@ -11,7 +11,7 @@ from tf_nre.tokenizer import Tokenizer
 # Model Parameters
 MAX_LEN = 100
 L2_PARAM = 0.001
-CONV_SIZE = 1000
+CONV_SIZE = 100
 KERNEL_SIZE = 4
 POS_EMB_SIZE = 25
 WORD_EMB_SIZE = 300
@@ -20,14 +20,14 @@ NUM_LABEL = 19
 
 # Training Parameters
 NUM_EPOCH = 10
-BATCH_SIZE = 4
+BATCH_SIZE = 32
 LEARNING_RATE = 0.03
 
 TOKENIZER_PATH = 'data/input/tokenizer.json'
 TRAIN_DATA_PATH = 'data/input/train.tfrecord'
 TEST_DATA_PATH = 'data/input/test.tfrecord'
 ID2LABEL_PATH = 'data/input/id2label.json'
-RESULT_PATH = 'data/output/prediction.json'
+RESULT_PATH = 'data/output/prediction.txt'
 
 MODEL_PATH = 'model/'
 LABEL_PATH = 'data/input/label2id.json'
@@ -122,7 +122,7 @@ def train(verbose=False, use_embedding=False):
     model = init_model(TOKENIZER_PATH, WORD_EMB_SIZE, POS_EMB_SIZE, WINDOW_SIZE, MAX_LEN, CONV_SIZE, KERNEL_SIZE,
                        NUM_LABEL, compute_label_emb_size(MAX_LEN, KERNEL_SIZE), use_embedding)
     optimizer = tf.keras.optimizers.Adam(LEARNING_RATE)
-    dataset = dataset.shuffle(1024).batch(BATCH_SIZE)
+    dataset = dataset.shuffle(1024*10).batch(BATCH_SIZE)
     dataset = dataset.repeat(NUM_EPOCH)
 
     for batch_data in dataset:
@@ -135,7 +135,8 @@ def train(verbose=False, use_embedding=False):
                   tf.cast(rel_e2_pos, dtype=tf.int32), e1_seq, e2_seq]
         label = tf.squeeze(label)
         train_step(optimizer, model, inputs, label, verbose=verbose)
-    tf.saved_model.save(model, MODEL_PATH)
+    # tf.saved_model.save(model, MODEL_PATH)
+    model.save_weights(MODEL_PATH)
 
 
 # @tf.function
@@ -165,13 +166,17 @@ def init_model(tokenizer_filename, word_emb_size, pos_emb_size, window_size, max
 
 def test(verbose=False):
     dataloader = DataLoader(MAX_LEN)
-    dataset = dataloader.get_dataset('data/input/test.tfrecord', True)
-    id2label = json.loads(ID2LABEL_PATH)
-    model = tf.saved_model.load(MODEL_PATH)
+    dataset = dataloader.get_dataset('data/input/test.tfrecord', False)
+    dataset = dataset.batch(BATCH_SIZE)
+    with open(ID2LABEL_PATH) as f:
+        id2label = json.loads(f.readline().strip())
+    model = init_model(TOKENIZER_PATH, WORD_EMB_SIZE, POS_EMB_SIZE, WINDOW_SIZE, MAX_LEN, CONV_SIZE, KERNEL_SIZE,
+                       NUM_LABEL, compute_label_emb_size(MAX_LEN, KERNEL_SIZE), False)
+    # model.load_weights(MODEL_PATH)
     labels = []
     if verbose:
         print("start prediction...")
-    count = 8000
+    c_id = 8000
     for batch_data in dataset:
         text_seq, e1_seq, e2_seq, rel_e1_pos, rel_e2_pos = batch_data['text_seq'], batch_data['e1_seq'], \
                                                            batch_data['e2_seq'], batch_data['rel_e1_pos'], \
@@ -180,17 +185,19 @@ def test(verbose=False):
         e2_seq = tf.RaggedTensor.from_sparse(e2_seq)
         inputs = [tf.cast(text_seq, dtype=tf.int32), tf.cast(rel_e1_pos, dtype=tf.int32),
                   tf.cast(rel_e2_pos, dtype=tf.int32), e1_seq, e2_seq]
-        preds = model(inputs, training=False)  # (batch_size,)
+        preds = model(inputs, training=False).numpy()  # (batch_size,)
+        print(preds)
         for pred in preds:
-            count += 1
-            labels.append({"id": count, "label": id2label[pred]})
+            c_id += 1
+            labels.append({"id": c_id, "label": id2label[str(pred)]})
     if verbose:
         print("writing prediction to file...")
-        with open(RESULT_PATH) as f:
+        with open(RESULT_PATH, 'w') as f:
             for d in labels:
                 f.write(str(d['id']) + '\t' + d['label'])
                 f.write('\n')
 
 
 if __name__ == '__main__':
-    train(True, True)
+    # train(True, True)
+    test(True)

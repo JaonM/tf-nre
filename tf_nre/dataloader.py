@@ -26,7 +26,7 @@ class DataLoader(object):
         features = {
             'text_seq': tf.io.FixedLenFeature((self.max_len,), tf.int64),
             'e1_seq': tf.io.VarLenFeature(tf.int64),
-            'e2_seq': tf.io.VarLenFeature(tf.int32),
+            'e2_seq': tf.io.VarLenFeature(tf.int64),
             'rel_e1_pos': tf.io.FixedLenFeature((self.max_len,), tf.int64),
             'rel_e2_pos': tf.io.FixedLenFeature((self.max_len,), tf.int64),
         }
@@ -44,5 +44,5 @@ class DataLoader(object):
 
 if __name__ == '__main__':
     dataloader = DataLoader(100)
-    dataset = dataloader.get_dataset('data/input/train.tfrecord')
+    dataset = dataloader.get_dataset('data/input/test.tfrecord')
     print(dataset)

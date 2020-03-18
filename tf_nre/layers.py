@@ -125,11 +125,15 @@ class CNNAttentionLayer(layers.Layer):
         A = tf.nn.softmax(G, axis=1)
         O = tf.matmul(R_star, A)  # (batch_size,output_dim,label_size)
         if 'training' in kwargs and not kwargs['training']:
-            O = tf.transpose(O, [0, 2, 1])  # (batch_size,label_size,output_dim)
-            O = tf.norm(O - label_emb, axis=2)  # (batch_size,label_size)
-            return tf.argmin(O, axis=1)
+            O = tf.reduce_max(O, axis=1)
+            # print(O)
+            # O = tf.transpose(O, [0, 2, 1])  # (batch_size,label_size,output_dim)
+            # x = tf.map_fn(lambda t: t - label_emb, O)
+            # x = tf.norm(x, axis=2)  # (batch_size,label_size)
+            return tf.argmax(O, axis=1)  # TODO
         else:
-            return tf.reduce_max(O, axis=2)  # (batch_size,output_dim)
+            O = tf.reduce_max(O, axis=2)  # (batch_size,output_dim)
+            return O
 
 
 if __name__ == '__main__':
