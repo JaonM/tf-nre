@@ -11,7 +11,7 @@ from tf_nre.tokenizer import Tokenizer
 # Model Parameters
 MAX_LEN = 100
 L2_PARAM = 0.001
-CONV_SIZE = 100
+CONV_SIZE = 1000
 KERNEL_SIZE = 4
 POS_EMB_SIZE = 25
 WORD_EMB_SIZE = 300
@@ -19,7 +19,7 @@ WINDOW_SIZE = 3
 NUM_LABEL = 19
 
 # Training Parameters
-NUM_EPOCH = 10
+NUM_EPOCH = 1
 BATCH_SIZE = 32
 LEARNING_RATE = 0.03
 
@@ -107,7 +107,6 @@ def distance_fn(predicted, label_tensor):
     distance function
     :param predicted: (batch_size,num_filter)
     :param label_tensor: (batch_size,label_dim)
-    label_dim == num_filter
     :return: (batch_size,)
     """
     label_tensor = label_tensor / tf.norm(label_tensor, axis=1, keepdims=True)
@@ -122,7 +121,8 @@ def train(verbose=False, use_embedding=False):
     model = init_model(TOKENIZER_PATH, WORD_EMB_SIZE, POS_EMB_SIZE, WINDOW_SIZE, MAX_LEN, CONV_SIZE, KERNEL_SIZE,
                        NUM_LABEL, compute_label_emb_size(MAX_LEN, KERNEL_SIZE), use_embedding)
     optimizer = tf.keras.optimizers.Adam(LEARNING_RATE)
-    dataset = dataset.shuffle(1024*10).batch(BATCH_SIZE)
+    loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+    dataset = dataset.shuffle(1024 * 10).batch(BATCH_SIZE)
     dataset = dataset.repeat(NUM_EPOCH)
 
     for batch_data in dataset:
@@ -132,19 +132,20 @@ def train(verbose=False, use_embedding=False):
         e1_seq = tf.RaggedTensor.from_sparse(e1_seq)
         e2_seq = tf.RaggedTensor.from_sparse(e2_seq)
         inputs = [tf.cast(text_seq, dtype=tf.int32), tf.cast(rel_e1_pos, dtype=tf.int32),
-                  tf.cast(rel_e2_pos, dtype=tf.int32), e1_seq, e2_seq]
+                  tf.cast(rel_e2_pos, dtype=tf.int32), e1_seq, e2_seq, tf.constant(np.arange(0, NUM_LABEL))]
         label = tf.squeeze(label)
-        train_step(optimizer, model, inputs, label, verbose=verbose)
+        train_step(optimizer, model, loss_fn, inputs, label, verbose=verbose)
     # tf.saved_model.save(model, MODEL_PATH)
     model.save_weights(MODEL_PATH)
 
 
 # @tf.function
-def train_step(optimizer, model, inputs, labels, verbose=False):
+def train_step(optimizer, model, loss_fn, inputs, labels, verbose=False):
     with tf.GradientTape() as tape:
         predicted = model(inputs, training=True)
         regularization_loss = tf.math.add_n(model.losses)
-        loss = loss_fn(predicted, labels, model.label_emb) + regularization_loss
+        # loss = loss_fn(predicted, labels, model.label_emb) + regularization_loss
+        loss = loss_fn(labels, predicted) + regularization_loss
         if verbose:
             print('current loss', loss.numpy())
     gradients = tape.gradient(loss, model.trainable_variables)
@@ -184,8 +185,9 @@ def test(verbose=False):
         e1_seq = tf.RaggedTensor.from_sparse(e1_seq)
         e2_seq = tf.RaggedTensor.from_sparse(e2_seq)
         inputs = [tf.cast(text_seq, dtype=tf.int32), tf.cast(rel_e1_pos, dtype=tf.int32),
-                  tf.cast(rel_e2_pos, dtype=tf.int32), e1_seq, e2_seq]
-        preds = model(inputs, training=False).numpy()  # (batch_size,)
+                  tf.cast(rel_e2_pos, dtype=tf.int32), e1_seq, e2_seq, tf.constant(np.arange(0, NUM_LABEL))]
+        preds = model(inputs, training=False)  # (batch_size,label_size)
+        preds = tf.argmax(preds, axis=1).numpy()
         print(preds)
         for pred in preds:
             c_id += 1
@@ -199,5 +201,5 @@ def test(verbose=False):
 
 
 if __name__ == '__main__':
-    # train(True, True)
-    test(True)
+    train(True, False)
+    # test(True)
